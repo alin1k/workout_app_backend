@@ -1,3 +1,6 @@
+import logging
+import os
+
 from flask import Flask
 from dotenv import load_dotenv
 
@@ -5,11 +8,32 @@ from app.config import Config
 from app.extensions import db, migrate
 
 
+def _configure_logging(app: Flask) -> None:
+    """Set up stdlib logging. Level driven by the LOG_LEVEL env var."""
+    level_name = os.environ.get("LOG_LEVEL", "INFO").upper()
+    level = getattr(logging, level_name, logging.INFO)
+
+    # Reconfigure root logger so our format wins even if something
+    # (e.g. werkzeug, alembic) configured it earlier.
+    root = logging.getLogger()
+    for handler in list(root.handlers):
+        root.removeHandler(handler)
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    app.logger.setLevel(level)
+    logging.getLogger("app").setLevel(level)
+
+
 def create_app(config_class: type[Config] = Config) -> Flask:
     load_dotenv()
 
     app = Flask(__name__)
     app.config.from_object(config_class)
+
+    _configure_logging(app)
 
     # Extensions
     db.init_app(app)
@@ -36,4 +60,5 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     def health():
         return {"status": "ok"}
 
+    app.logger.info("App initialized (env=%s)", app.config.get("ENV"))
     return app

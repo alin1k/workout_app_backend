@@ -26,6 +26,7 @@ services:
     environment:
       FLASK_ENV: development
       SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-dev}@db:5432/${POSTGRES_DB:-workout_app}
     ports:
       - "5000:5000"

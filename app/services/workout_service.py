@@ -38,12 +38,8 @@ def get_workout(workout_id: int) -> Workout:
 
 
 def create_workout(data: dict) -> Workout:
-    name = data.get("name")
-    if not name:
-        raise ValidationError("name is required", field="name")
-
     workout = Workout(
-        name=name,
+        name=data.get("name"),
         performed_at=_parse_iso(data.get("performed_at")),
         notes=data.get("notes"),
     )
@@ -57,8 +53,6 @@ def update_workout(workout_id: int, data: dict) -> Workout:
     workout = get_workout(workout_id)
 
     if "name" in data:
-        if not data["name"]:
-            raise ValidationError("name cannot be empty", field="name")
         workout.name = data["name"]
     if "notes" in data:
         workout.notes = data["notes"]
@@ -78,7 +72,7 @@ def delete_workout(workout_id: int) -> None:
 
 
 def add_exercise(workout_id: int, data: dict) -> Exercise:
-    get_workout(workout_id)  # raises NotFoundError if missing
+    get_workout(workout_id)
 
     exercise_type_id = data.get("exercise_type_id")
     if not exercise_type_id:
@@ -88,7 +82,7 @@ def add_exercise(workout_id: int, data: dict) -> Exercise:
         raise NotFoundError(f"ExerciseType {exercise_type_id} not found")
 
     if "order" in data:
-        order = int(data["order"])
+        order = data["order"]
     else:
         max_order = (
             db.session.query(func.max(Exercise.order))
@@ -106,6 +100,6 @@ def add_exercise(workout_id: int, data: dict) -> Exercise:
     db.session.commit()
     logger.info(
         "Added exercise id=%s to workout id=%s (type=%s, order=%s)",
-        exercise.id, workout_id, exercise_type_id, order,
+        exercise.id, workout_id, exercise_type_id, exercise.order,
     )
     return exercise

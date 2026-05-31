@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from app.extensions import db
 from app.models.exercise import Exercise
 from app.models.exercise_type import ExerciseType
-from app.services.errors import ConflictError, NotFoundError, ValidationError
+from app.services.errors import ConflictError, NotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -25,12 +25,8 @@ def get_exercise_type(et_id: int) -> ExerciseType:
 
 
 def create_exercise_type(data: dict) -> ExerciseType:
-    name = data.get("name")
-    if not name:
-        raise ValidationError("name is required", field="name")
-
     et = ExerciseType(
-        name=name,
+        name=data.get("name"),
         description=data.get("description"),
         muscle_group=data.get("muscle_group"),
     )
@@ -39,7 +35,7 @@ def create_exercise_type(data: dict) -> ExerciseType:
         db.session.commit()
     except IntegrityError as exc:
         db.session.rollback()
-        logger.warning("ExerciseType name=%r already exists", name)
+        logger.warning("ExerciseType name=%r already exists", data.get("name"))
         raise ConflictError("exercise type with this name already exists") from exc
     logger.info("Created exercise type id=%s name=%r", et.id, et.name)
     return et
@@ -49,8 +45,6 @@ def update_exercise_type(et_id: int, data: dict) -> ExerciseType:
     et = get_exercise_type(et_id)
 
     if "name" in data:
-        if not data["name"]:
-            raise ValidationError("name cannot be empty", field="name")
         et.name = data["name"]
     if "description" in data:
         et.description = data["description"]

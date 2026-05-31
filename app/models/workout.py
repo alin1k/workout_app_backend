@@ -1,6 +1,9 @@
 from datetime import datetime, timezone
 
+from sqlalchemy.orm import validates
+
 from app.extensions import db
+from app.services.errors import ValidationError
 
 
 class Workout(db.Model):
@@ -22,6 +25,12 @@ class Workout(db.Model):
         cascade="all, delete-orphan",
         order_by="Exercise.order",
     )
+
+    @validates("name")
+    def _validate_name(self, key, value):
+        if value is None or not str(value).strip():
+            raise ValidationError("name is required", field=key)
+        return str(value).strip()
 
     def to_dict(self, include_exercises: bool = True) -> dict:
         out = {

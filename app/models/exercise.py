@@ -1,8 +1,16 @@
+from sqlalchemy import CheckConstraint
+from sqlalchemy.orm import validates
+
 from app.extensions import db
+from app.services.errors import ValidationError
 
 
 class Exercise(db.Model):
     __tablename__ = "exercises"
+    __table_args__ = (
+        # `order` is a SQL reserved word, so it must be quoted in the CHECK expression.
+        CheckConstraint('"order" > 0', name="ck_exercises_order_positive"),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     workout_id = db.Column(
@@ -27,6 +35,18 @@ class Exercise(db.Model):
         cascade="all, delete-orphan",
         order_by="ExerciseSet.set_number",
     )
+
+    @validates("order")
+    def _validate_order(self, key, value):
+        if value is None:
+            raise ValidationError("order is required", field=key)
+        try:
+            ivalue = int(value)
+        except (TypeError, ValueError) as exc:
+            raise ValidationError("order must be an integer", field=key) from exc
+        if ivalue <= 0:
+            raise ValidationError("order must be positive", field=key)
+        return ivalue
 
     def to_dict(self, include_sets: bool = True) -> dict:
         out = {

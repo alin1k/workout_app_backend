@@ -5,7 +5,7 @@ from sqlalchemy import func
 from app.extensions import db
 from app.models.exercise import Exercise
 from app.models.exercise_set import ExerciseSet
-from app.services.errors import NotFoundError, ValidationError
+from app.services.errors import NotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -29,23 +29,9 @@ def delete_exercise(exercise_id: int) -> None:
 def add_set(exercise_id: int, data: dict) -> ExerciseSet:
     get_exercise(exercise_id)  # raises NotFoundError if missing
 
-    if data.get("reps") is None:
-        raise ValidationError("reps is required", field="reps")
-
-    try:
-        reps = int(data["reps"])
-    except (TypeError, ValueError) as exc:
-        raise ValidationError("reps must be an integer", field="reps") from exc
-
-    weight = data.get("weight")
-    if weight is not None:
-        try:
-            weight = float(weight)
-        except (TypeError, ValueError) as exc:
-            raise ValidationError("weight must be a number", field="weight") from exc
-
+    # Field-level checks (reps/weight/set_number) live on the model via @validates.
     if "set_number" in data:
-        set_number = int(data["set_number"])
+        set_number = data["set_number"]
     else:
         max_number = (
             db.session.query(func.max(ExerciseSet.set_number))
@@ -57,14 +43,15 @@ def add_set(exercise_id: int, data: dict) -> ExerciseSet:
     exercise_set = ExerciseSet(
         exercise_id=exercise_id,
         set_number=set_number,
-        reps=reps,
-        weight=weight,
+        reps=data.get("reps"),
+        weight=data.get("weight"),
     )
     db.session.add(exercise_set)
     db.session.commit()
     logger.info(
         "Added set id=%s to exercise id=%s (#%s, %s reps, %s kg)",
-        exercise_set.id, exercise_id, set_number, reps, weight,
+        exercise_set.id, exercise_id, exercise_set.set_number,
+        exercise_set.reps, exercise_set.weight,
     )
     return exercise_set
 

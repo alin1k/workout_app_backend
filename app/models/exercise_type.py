@@ -1,4 +1,7 @@
+from sqlalchemy.orm import validates
+
 from app.extensions import db
+from app.services.errors import ValidationError
 
 
 class ExerciseType(db.Model):
@@ -8,6 +11,12 @@ class ExerciseType(db.Model):
     name = db.Column(db.String(255), unique=True, nullable=False)
     description = db.Column(db.Text, nullable=True)
     muscle_group = db.Column(db.String(100), nullable=True)
+
+    @validates("name")
+    def _validate_name(self, key, value):
+        if value is None or not str(value).strip():
+            raise ValidationError("name is required", field=key)
+        return str(value).strip()
 
     def to_dict(self) -> dict:
         return {

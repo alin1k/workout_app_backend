@@ -1,17 +1,29 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
 from flask import Blueprint, jsonify, request
+from sqlalchemy import func
 
-from app import store
-from app.schemas import exercise_to_dict, workout_to_dict
+from app.extensions import db
+from app.models.exercise import Exercise
+from app.models.exercise_type import ExerciseType
+from app.models.workout import Workout
 
 workouts_bp = Blueprint("workouts", __name__, url_prefix="/api/workouts")
 
 
+def _parse_iso(value: str | None):
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return ValueError
+
+
 @workouts_bp.get("")
 def list_workouts():
-    items = [workout_to_dict(w, include_exercises=False) for w in store.workouts.values()]
-    return jsonify(items)
+    workouts = Workout.query.order_by(Workout.created_at.desc()).all()
+    return jsonify([w.to_dict(include_exercises=False) for w in workouts])
 
 
 @workouts_bp.post("")
@@ -21,75 +33,91 @@ def create_workout():
     if not name:
         return jsonify({"error": "name is required"}), 400
 
-    workout = {
-        "id": store.next_workout_id(),
-        "name": name,
-        "performed_at": data.get("performed_at"),
-        "notes": data.get("notes"),
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-    store.workouts[workout["id"]] = workout
-    return jsonify(workout_to_dict(workout)), 201
+    performed_at = _parse_iso(data.get("performed_at"))
+    if performed_at is ValueError:
+        return jsonify({"error": "performed_at must be ISO 8601"}), 400
+
+    workout = Workout(
+        name=name,
+        performed_at=performed_at,
+        notes=data.get("notes"),
+    )
+    db.session.add(workout)
+    db.session.commit()
+    return jsonify(workout.to_dict()), 201
 
 
 @workouts_bp.get("/<int:workout_id>")
 def get_workout(workout_id: int):
-    workout = store.workouts.get(workout_id)
+    workout = db.session.get(Workout, workout_id)
     if not workout:
         return jsonify({"error": "workout not found"}), 404
-    return jsonify(workout_to_dict(workout))
+    return jsonify(workout.to_dict())
 
 
 @workouts_bp.put("/<int:workout_id>")
 def update_workout(workout_id: int):
-    workout = store.workouts.get(workout_id)
+    workout = db.session.get(Workout, workout_id)
     if not workout:
         return jsonify({"error": "workout not found"}), 404
 
     data = request.get_json(silent=True) or {}
-    for field in ("name", "performed_at", "notes"):
-        if field in data:
-            workout[field] = data[field]
-    return jsonify(workout_to_dict(workout))
+    if "name" in data:
+        if not data["name"]:
+            return jsonify({"error": "name cannot be empty"}), 400
+        workout.name = data["name"]
+    if "notes" in data:
+        workout.notes = data["notes"]
+    if "performed_at" in data:
+        performed_at = _parse_iso(data["performed_at"])
+        if performed_at is ValueError:
+            return jsonify({"error": "performed_at must be ISO 8601"}), 400
+        workout.performed_at = performed_at
+
+    db.session.commit()
+    return jsonify(workout.to_dict())
 
 
 @workouts_bp.delete("/<int:workout_id>")
 def delete_workout(workout_id: int):
-    if workout_id not in store.workouts:
+    workout = db.session.get(Workout, workout_id)
+    if not workout:
         return jsonify({"error": "workout not found"}), 404
-
-    exercise_ids = [e["id"] for e in store.exercises.values() if e["workout_id"] == workout_id]
-    for eid in exercise_ids:
-        set_ids = [s["id"] for s in store.sets.values() if s["exercise_id"] == eid]
-        for sid in set_ids:
-            store.sets.pop(sid, None)
-        store.exercises.pop(eid, None)
-    store.workouts.pop(workout_id, None)
+    db.session.delete(workout)
+    db.session.commit()
     return "", 204
 
 
 @workouts_bp.post("/<int:workout_id>/exercises")
 def add_exercise(workout_id: int):
-    if workout_id not in store.workouts:
+    workout = db.session.get(Workout, workout_id)
+    if not workout:
         return jsonify({"error": "workout not found"}), 404
 
     data = request.get_json(silent=True) or {}
     exercise_type_id = data.get("exercise_type_id")
     if not exercise_type_id:
         return jsonify({"error": "exercise_type_id is required"}), 400
-    if exercise_type_id not in store.exercise_types:
+
+    exercise_type = db.session.get(ExerciseType, exercise_type_id)
+    if not exercise_type:
         return jsonify({"error": "exercise type not found"}), 404
 
-    existing_orders = [
-        e["order"] for e in store.exercises.values() if e["workout_id"] == workout_id
-    ]
-    default_order = (max(existing_orders) + 1) if existing_orders else 1
+    if "order" in data:
+        order = int(data["order"])
+    else:
+        max_order = (
+            db.session.query(func.max(Exercise.order))
+            .filter(Exercise.workout_id == workout_id)
+            .scalar()
+        )
+        order = (max_order or 0) + 1
 
-    exercise = {
-        "id": store.next_exercise_id(),
-        "workout_id": workout_id,
-        "exercise_type_id": exercise_type_id,
-        "order": int(data.get("order", default_order)),
-    }
-    store.exercises[exercise["id"]] = exercise
-    return jsonify(exercise_to_dict(exercise)), 201
+    exercise = Exercise(
+        workout_id=workout_id,
+        exercise_type_id=exercise_type_id,
+        order=order,
+    )
+    db.session.add(exercise)
+    db.session.commit()
+    return jsonify(exercise.to_dict()), 201

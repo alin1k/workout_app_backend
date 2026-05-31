@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:16
+    container_name: workout_app_db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev}
+      POSTGRES_DB: ${POSTGRES_DB:-workout_app}
+    ports:
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-workout_app}"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  web:
+    build: .
+    container_name: workout_app_web
+    init: true
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      FLASK_ENV: development
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-dev}@db:5432/${POSTGRES_DB:-workout_app}
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./app:/app/app
+      - ./migrations:/app/migrations
+    command: >
+      sh -c "flask --app app db upgrade &&
+             flask --app app run --host=0.0.0.0 --port=5000 --debug"
+
+volumes:
+  postgres_data:

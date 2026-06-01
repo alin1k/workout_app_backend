@@ -28,6 +28,9 @@ services:
       SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_ACCESS_TOKEN_EXPIRES_SECONDS: ${JWT_ACCESS_TOKEN_EXPIRES_SECONDS:-3600}
+      REGISTRATION_KEY: ${REGISTRATION_KEY:-}
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-dev}@db:5432/${POSTGRES_DB:-workout_app}
     ports:
       - "5000:5000"

@@ -2,7 +2,6 @@ import logging
 from datetime import datetime
 
 from sqlalchemy import func
-from sqlalchemy.orm import selectinload
 
 from app.extensions import db
 from app.models.exercise import Exercise
@@ -21,45 +20,52 @@ def _parse_iso(value):
     try:
         return datetime.fromisoformat(value)
     except (ValueError, TypeError) as exc:
-        raise ValidationError("performed_at must be ISO 8601", field="performed_at") from exc
+        raise ValidationError(
+            "performed_at must be ISO 8601", field="performed_at"
+        ) from exc
 
 
-def list_workouts() -> list[Workout]:
-    logger.info("Listing workouts")
+def list_workouts(user_id: int) -> list[Workout]:
+    logger.info("Listing workouts for user_id=%s", user_id)
     return (
-        Workout.query
-        .options(
-            selectinload(Workout.exercises).selectinload(Exercise.exercise_type),
-            selectinload(Workout.exercises).selectinload(Exercise.sets),
-        )
-        .order_by(Workout.performed_at.desc())
+        Workout.query.filter(Workout.user_id == user_id)
+        .order_by(Workout.created_at.desc())
         .all()
     )
 
 
-def get_workout(workout_id: int) -> Workout:
-    logger.debug("Fetching workout id=%s", workout_id)
-    workout = db.session.get(Workout, workout_id)
-    if not workout:
-        logger.warning("Workout id=%s not found", workout_id)
+def get_workout(workout_id: int, user_id: int) -> Workout:
+    """Fetch a workout *owned by* user_id. Cross-user access returns 404
+    (not 403) so we don't reveal that the resource exists at all."""
+    logger.debug("Fetching workout id=%s for user_id=%s", workout_id, user_id)
+    workout = (
+        Workout.query.filter(Workout.id == workout_id, Workout.user_id == user_id)
+        .first()
+    )
+    if workout is None:
+        logger.warning("Workout id=%s not found for user_id=%s", workout_id, user_id)
         raise NotFoundError(f"Workout {workout_id} not found")
     return workout
 
 
-def create_workout(data: dict) -> Workout:
+def create_workout(data: dict, user_id: int) -> Workout:
     workout = Workout(
+        user_id=user_id,
         name=data.get("name"),
         performed_at=_parse_iso(data.get("performed_at")),
         notes=data.get("notes"),
     )
     db.session.add(workout)
     db.session.commit()
-    logger.info("Created workout id=%s name=%r", workout.id, workout.name)
+    logger.info(
+        "Created workout id=%s for user_id=%s name=%r",
+        workout.id, user_id, workout.name,
+    )
     return workout
 
 
-def update_workout(workout_id: int, data: dict) -> Workout:
-    workout = get_workout(workout_id)
+def update_workout(workout_id: int, data: dict, user_id: int) -> Workout:
+    workout = get_workout(workout_id, user_id)
 
     if "name" in data:
         workout.name = data["name"]
@@ -73,20 +79,23 @@ def update_workout(workout_id: int, data: dict) -> Workout:
     return workout
 
 
-def delete_workout(workout_id: int) -> None:
-    workout = get_workout(workout_id)
+def delete_workout(workout_id: int, user_id: int) -> None:
+    workout = get_workout(workout_id, user_id)
     db.session.delete(workout)
     db.session.commit()
     logger.info("Deleted workout id=%s", workout_id)
 
 
-def add_exercise(workout_id: int, data: dict) -> Exercise:
-    get_workout(workout_id)
+def add_exercise(workout_id: int, data: dict, user_id: int) -> Exercise:
+    get_workout(workout_id, user_id)  # ownership + existence check
 
     exercise_type_id = data.get("exercise_type_id")
     if not exercise_type_id:
-        raise ValidationError("exercise_type_id is required", field="exercise_type_id")
+        raise ValidationError(
+            "exercise_type_id is required", field="exercise_type_id"
+        )
 
+    # ExerciseType is global — no user filter.
     if not db.session.get(ExerciseType, exercise_type_id):
         raise NotFoundError(f"ExerciseType {exercise_type_id} not found")
 

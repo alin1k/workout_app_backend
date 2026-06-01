@@ -10,6 +10,12 @@ class Workout(db.Model):
     __tablename__ = "workouts"
 
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     name = db.Column(db.String(255), nullable=False)
     performed_at = db.Column(db.DateTime(timezone=True), nullable=True)
     notes = db.Column(db.Text, nullable=True)
@@ -19,6 +25,7 @@ class Workout(db.Model):
         default=lambda: datetime.now(timezone.utc),
     )
 
+    user = db.relationship("User", back_populates="workouts")
     exercises = db.relationship(
         "Exercise",
         back_populates="workout",

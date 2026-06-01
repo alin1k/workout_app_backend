@@ -1,25 +1,33 @@
 from flask import Blueprint, jsonify, request
+from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from app.services import exercise_service
 
 exercises_bp = Blueprint("exercises", __name__, url_prefix="/api/exercises")
 
 
+def _user_id() -> int:
+    return int(get_jwt_identity())
+
+
 @exercises_bp.put("/<int:exercise_id>")
+@jwt_required()
 def update_exercise(exercise_id: int):
     data = request.get_json(silent=True) or {}
-    workout = exercise_service.update_exercise(exercise_id, data)
+    workout = exercise_service.update_exercise(exercise_id, data, _user_id())
     return jsonify(workout.to_dict())
 
 
 @exercises_bp.delete("/<int:exercise_id>")
+@jwt_required()
 def delete_exercise(exercise_id: int):
-    exercise_service.delete_exercise(exercise_id)
+    exercise_service.delete_exercise(exercise_id, _user_id())
     return "", 204
 
 
 @exercises_bp.post("/<int:exercise_id>/sets")
+@jwt_required()
 def add_set(exercise_id: int):
     data = request.get_json(silent=True) or {}
-    exercise_set = exercise_service.add_set(exercise_id, data)
+    exercise_set = exercise_service.add_set(exercise_id, data, _user_id())
     return jsonify(exercise_set.to_dict()), 201

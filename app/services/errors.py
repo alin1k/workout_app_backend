@@ -31,3 +31,9 @@ class ConflictError(ServiceError):
     """The action would violate a uniqueness / integrity constraint."""
 
     status_code = 409
+
+
+class AuthenticationError(ServiceError):
+    """Bad credentials, missing/expired token, or rejected registration key."""
+
+    status_code = 401

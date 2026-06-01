@@ -1,0 +1,20 @@
+services:
+  db:
+    ports: !reset null
+    restart: unless-stopped
+
+  web:
+    volumes: !reset null
+    networks:
+      - web
+      - default
+    environment:
+      FLASK_ENV: production
+    command: >
+      sh -c "flask --app app db upgrade &&
+             gunicorn --workers 3 --bind 0.0.0.0:5000 --access-logfile - --error-logfile - 'app:create_app()'"
+    restart: unless-stopped
+
+networks:
+  web:
+    external: true

@@ -2,6 +2,7 @@ import logging
 from datetime import datetime
 
 from sqlalchemy import func
+from sqlalchemy.orm import selectinload
 
 from app.extensions import db
 from app.models.exercise import Exercise
@@ -25,7 +26,15 @@ def _parse_iso(value):
 
 def list_workouts() -> list[Workout]:
     logger.info("Listing workouts")
-    return Workout.query.order_by(Workout.created_at.desc()).all()
+    return (
+        Workout.query
+        .options(
+            selectinload(Workout.exercises).selectinload(Exercise.exercise_type),
+            selectinload(Workout.exercises).selectinload(Exercise.sets),
+        )
+        .order_by(Workout.created_at.desc())
+        .all()
+    )
 
 
 def get_workout(workout_id: int) -> Workout:

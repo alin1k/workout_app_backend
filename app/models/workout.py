@@ -42,4 +42,12 @@ class Workout(db.Model):
         }
         if include_exercises:
             out["exercises"] = [e.to_dict() for e in self.exercises]
+        else:
+            out["exercise_count"] = len(self.exercises)
+            out["set_count"] = sum(len(e.sets) for e in self.exercises)
+            out["muscle_groups"] = sorted({
+                e.exercise_type.muscle_group
+                for e in self.exercises
+                if e.exercise_type is not None and e.exercise_type.muscle_group
+            })
         return out

@@ -32,7 +32,7 @@ def list_workouts() -> list[Workout]:
             selectinload(Workout.exercises).selectinload(Exercise.exercise_type),
             selectinload(Workout.exercises).selectinload(Exercise.sets),
         )
-        .order_by(Workout.created_at.desc())
+        .order_by(Workout.performed_at.desc())
         .all()
     )
 

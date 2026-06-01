@@ -2,6 +2,7 @@ import logging
 import os
 
 from flask import Flask
+from flask_cors import CORS
 from dotenv import load_dotenv
 
 from app.config import Config
@@ -34,6 +35,16 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     app.config.from_object(config_class)
 
     _configure_logging(app)
+
+    # CORS — open in dev, restrict in prod by setting CORS_ORIGINS to a
+    # comma-separated list of allowed origins (e.g. "https://app.example.com").
+    origins_raw = os.environ.get("CORS_ORIGINS", "*").strip()
+    if origins_raw == "*":
+        CORS(app)
+    else:
+        origins = [o.strip() for o in origins_raw.split(",") if o.strip()]
+        CORS(app, origins=origins)
+    app.logger.info("CORS configured (origins=%s)", origins_raw)
 
     # Extensions
     db.init_app(app)

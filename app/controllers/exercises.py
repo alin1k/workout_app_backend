@@ -5,6 +5,13 @@ from app.services import exercise_service
 exercises_bp = Blueprint("exercises", __name__, url_prefix="/api/exercises")
 
 
+@exercises_bp.put("/<int:exercise_id>")
+def update_exercise(exercise_id: int):
+    data = request.get_json(silent=True) or {}
+    workout = exercise_service.update_exercise(exercise_id, data)
+    return jsonify(workout.to_dict())
+
+
 @exercises_bp.delete("/<int:exercise_id>")
 def delete_exercise(exercise_id: int):
     exercise_service.delete_exercise(exercise_id)

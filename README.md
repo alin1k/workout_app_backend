@@ -33,6 +33,12 @@ What happens on `up`:
 
 Source code is bind-mounted (`./app`, `./migrations`) so edits trigger an immediate Flask reload — no rebuild needed.
 
+## Running in prod
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
 ## Ports
 
 - `5000` — Flask

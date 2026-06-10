@@ -29,7 +29,7 @@ def list_workouts(user_id: int) -> list[Workout]:
     logger.info("Listing workouts for user_id=%s", user_id)
     return (
         Workout.query.filter(Workout.user_id == user_id)
-        .order_by(Workout.created_at.desc())
+        .order_by(Workout.performed_at.desc())
         .all()
     )
 

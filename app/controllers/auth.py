@@ -30,3 +30,14 @@ def me():
         # Token references a user that no longer exists (deleted out-of-band).
         raise AuthenticationError("user no longer exists")
     return jsonify(user.to_dict())
+
+
+@auth_bp.post("/reset-password")
+@jwt_required()
+def reset_password():
+    user = auth_service.get_user_by_id(get_jwt_identity())
+    if user is None:
+        raise AuthenticationError("user no longer exists")
+    data = request.get_json(silent=True) or {}
+    auth_service.reset_password(user, data)
+    return jsonify({"message": "password updated"}), 200

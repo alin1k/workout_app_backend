@@ -79,6 +79,25 @@ def authenticate(data: dict) -> tuple[User, str]:
     return user, _issue_token(user)
 
 
+def reset_password(user: User, data: dict) -> None:
+    current_password = data.get("current_password")
+    new_password = data.get("new_password")
+
+    # Generic message whether the field is missing or simply wrong — don't
+    # tell a token-holder which one it was.
+    if not current_password or not user.check_password(current_password):
+        logger.warning("Rejected password reset for user id=%s", user.id)
+        raise AuthenticationError("invalid current password")
+
+    if new_password is None or new_password == "":
+        raise ValidationError("new_password is required", field="new_password")
+
+    # Model-level validation (min length) raises ValidationError.
+    user.set_password(new_password)
+    db.session.commit()
+    logger.info("Password updated for user id=%s", user.id)
+
+
 def get_user_by_id(user_id) -> User | None:
     try:
         uid = int(user_id)

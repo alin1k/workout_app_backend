@@ -112,7 +112,7 @@ def create_app(config_class: type[Config] = Config) -> Flask:
 
     register_error_handlers(app)
 
-    @app.get("api/health")
+    @app.get("/api/health")
     def health():
         return {"status": "ok"}
 

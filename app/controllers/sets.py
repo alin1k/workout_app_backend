@@ -1,9 +1,10 @@
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
+from app.api_version import API_PREFIX
 from app.services import exercise_service
 
-sets_bp = Blueprint("sets", __name__, url_prefix="/api/sets")
+sets_bp = Blueprint("sets", __name__, url_prefix=f"{API_PREFIX}/sets")
 
 
 def _user_id() -> int:

@@ -1,10 +1,11 @@
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
+from app.api_version import API_PREFIX
 from app.services import auth_service
 from app.services.errors import AuthenticationError
 
-auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
+auth_bp = Blueprint("auth", __name__, url_prefix=f"{API_PREFIX}/auth")
 
 
 @auth_bp.post("/register")

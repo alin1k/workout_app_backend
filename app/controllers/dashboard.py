@@ -1,9 +1,10 @@
 from flask import Blueprint, jsonify
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
+from app.api_version import API_PREFIX
 from app.services import dashboard_service
 
-dashboard_bp = Blueprint("dashboard", __name__, url_prefix="/api/dashboard")
+dashboard_bp = Blueprint("dashboard", __name__, url_prefix=f"{API_PREFIX}/dashboard")
 
 
 def _user_id() -> int:

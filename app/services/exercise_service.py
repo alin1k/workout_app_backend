@@ -10,10 +10,10 @@ from app.services.errors import NotFoundError, ValidationError
 
 logger = logging.getLogger(__name__)
 
-# Fields the client is allowed to mutate via PUT /api/sets/<id>.
+# Fields the client is allowed to mutate via PUT /api/v1/sets/<id>.
 _MUTABLE_SET_FIELDS = ("reps", "weight")
 
-# Fields the client is allowed to mutate via PUT /api/exercises/<id>.
+# Fields the client is allowed to mutate via PUT /api/v1/exercises/<id>.
 _MUTABLE_EXERCISE_FIELDS = ("order",)
 
 

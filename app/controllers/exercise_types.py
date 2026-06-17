@@ -1,9 +1,12 @@
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 
+from app.api_version import API_PREFIX
 from app.services import exercise_type_service
 
-exercise_types_bp = Blueprint("exercise_types", __name__, url_prefix="/api/exercise-types")
+exercise_types_bp = Blueprint(
+    "exercise_types", __name__, url_prefix=f"{API_PREFIX}/exercise-types"
+)
 
 
 @exercise_types_bp.get("")

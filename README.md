@@ -75,30 +75,6 @@ docker compose up
 
 If you want to poke at the database directly (psql, IDE plugin, etc.) it's reachable on the host at `localhost:5433`. The `DATABASE_URL` in `.env` points there for that purpose — the container uses a different URL (host `db`, port `5432`) injected by `docker-compose.yml`.
 
-## Smoke test
-
-```bash
-curl localhost:5000/health
-
-curl -X POST localhost:5000/api/exercise-types \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"Bench Press","muscle_group":"chest"}'
-
-curl -X POST localhost:5000/api/workouts \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"Push day"}'
-
-curl -X POST localhost:5000/api/workouts/1/exercises \
-  -H 'Content-Type: application/json' \
-  -d '{"exercise_type_id":1}'
-
-curl -X POST localhost:5000/api/exercises/1/sets \
-  -H 'Content-Type: application/json' \
-  -d '{"reps":10,"weight":60}'
-
-curl localhost:5000/api/workouts/1   # full nested tree
-```
-
 ## Logs
 
 ```bash

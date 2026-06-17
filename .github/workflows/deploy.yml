@@ -1,0 +1,47 @@
+name: Deploy backend
+
+# On every push to main, SSH into the VPS, pull the latest code and let
+# Docker Compose rebuild + recreate only the changed services in place.
+# The image is built on the VPS (the `web` service uses `build: .`), so
+# CI itself has nothing to build — it just triggers the remote deploy.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+# Avoid overlapping deploys clobbering each other.
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Deploy to VPS
+        run: |
+          ssh -i ~/.ssh/deploy_key -o UserKnownHostsFile=~/.ssh/known_hosts \
+            "alin@${{ secrets.SSH_HOST }}" 'bash -s' <<'EOF'
+          set -euo pipefail
+          cd /home/alin/workout_app_backend
+
+          # Force the working tree to exactly match origin/main.
+          git fetch --prune origin
+          git reset --hard origin/main
+
+          # Rebuild and recreate only the services that changed, no downtime
+          # for unchanged ones. Explicit -f flags keep this pure-prod and
+          # prevent docker-compose.override.yml (the dev config) auto-loading.
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+
+          # Reclaim disk from the now-dangling old image layers.
+          docker image prune -f
+          EOF

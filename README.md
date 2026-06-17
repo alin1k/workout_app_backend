@@ -33,6 +33,14 @@ What happens on `up`:
 
 Source code is bind-mounted (`./app`, `./migrations`) so edits trigger an immediate Flask reload — no rebuild needed.
 
+## Compose file layout
+
+- `docker-compose.yml` — base definition shared by every environment.
+- `docker-compose.override.yml` — dev-only extras (host DB port, source bind mounts, `--debug` Flask server). Compose loads this **automatically** on a bare `docker compose up`.
+- `docker-compose.prod.yml` — prod-only extras (gunicorn, `restart: unless-stopped`, external `web` network). Loaded only when passed explicitly with `-f`.
+
+Passing `-f` disables auto-loading of the override file, so the prod command never picks up dev settings.
+
 ## Running in prod
 
 ```bash

@@ -1,10 +1,8 @@
 services:
   db:
-    ports: !reset null
     restart: unless-stopped
 
   web:
-    volumes: !reset null
     networks:
       - web
       - default

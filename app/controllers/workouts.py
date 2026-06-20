@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from app.api_version import API_PREFIX
+from app.pagination import paginated_response, parse_pagination
 from app.services import workout_service
 
 workouts_bp = Blueprint("workouts", __name__, url_prefix=f"{API_PREFIX}/workouts")
@@ -14,8 +15,15 @@ def _user_id() -> int:
 @workouts_bp.get("")
 @jwt_required()
 def list_workouts():
-    workouts = workout_service.list_workouts(_user_id())
-    return jsonify([w.to_dict(include_exercises=False) for w in workouts])
+    pagination = parse_pagination(request.args)
+    workouts, total = workout_service.list_workouts(
+        _user_id(), pagination.limit, pagination.offset
+    )
+    return jsonify(
+        paginated_response(
+            [w.to_dict(include_exercises=False) for w in workouts], total, pagination
+        )
+    )
 
 
 @workouts_bp.post("")

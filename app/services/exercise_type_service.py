@@ -10,9 +10,14 @@ from app.services.errors import ConflictError, NotFoundError
 logger = logging.getLogger(__name__)
 
 
-def list_exercise_types() -> list[ExerciseType]:
-    logger.info("Listing exercise types")
-    return ExerciseType.query.order_by(ExerciseType.name.asc()).all()
+def list_exercise_types(limit: int, offset: int) -> tuple[list[ExerciseType], int]:
+    logger.info("Listing exercise types limit=%s offset=%s", limit, offset)
+    query = ExerciseType.query.order_by(
+        ExerciseType.name.asc(), ExerciseType.id.asc()
+    )
+    total = query.count()
+    items = query.limit(limit).offset(offset).all()
+    return items, total
 
 
 def get_exercise_type(et_id: int) -> ExerciseType:

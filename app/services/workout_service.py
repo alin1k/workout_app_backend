@@ -25,13 +25,19 @@ def _parse_iso(value):
         ) from exc
 
 
-def list_workouts(user_id: int) -> list[Workout]:
-    logger.info("Listing workouts for user_id=%s", user_id)
-    return (
-        Workout.query.filter(Workout.user_id == user_id)
-        .order_by(Workout.performed_at.desc())
-        .all()
+def list_workouts(
+    user_id: int, limit: int, offset: int
+) -> tuple[list[Workout], int]:
+    logger.info(
+        "Listing workouts for user_id=%s limit=%s offset=%s", user_id, limit, offset
     )
+    query = (
+        Workout.query.filter(Workout.user_id == user_id)
+        .order_by(Workout.performed_at.desc(), Workout.id.desc())
+    )
+    total = query.count()
+    items = query.limit(limit).offset(offset).all()
+    return items, total
 
 
 def get_workout(workout_id: int, user_id: int) -> Workout:

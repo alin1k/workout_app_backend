@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 
 from app.api_version import API_PREFIX
+from app.pagination import paginated_response, parse_pagination
 from app.services import exercise_type_service
 
 exercise_types_bp = Blueprint(
@@ -12,8 +13,13 @@ exercise_types_bp = Blueprint(
 @exercise_types_bp.get("")
 @jwt_required()
 def list_exercise_types():
-    items = exercise_type_service.list_exercise_types()
-    return jsonify([et.to_dict() for et in items])
+    pagination = parse_pagination(request.args)
+    items, total = exercise_type_service.list_exercise_types(
+        pagination.limit, pagination.offset
+    )
+    return jsonify(
+        paginated_response([et.to_dict() for et in items], total, pagination)
+    )
 
 
 @exercise_types_bp.post("")

@@ -11,7 +11,7 @@ def _user_id() -> int:
     return int(get_jwt_identity())
 
 
-@exercises_bp.put("/<int:exercise_id>")
+@exercises_bp.patch("/<int:exercise_id>")
 @jwt_required()
 def update_exercise(exercise_id: int):
     data = request.get_json(silent=True) or {}

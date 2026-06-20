@@ -11,7 +11,7 @@ def _user_id() -> int:
     return int(get_jwt_identity())
 
 
-@sets_bp.put("/<int:set_id>")
+@sets_bp.patch("/<int:set_id>")
 @jwt_required()
 def update_set(set_id: int):
     data = request.get_json(silent=True) or {}

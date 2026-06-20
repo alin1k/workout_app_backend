@@ -37,7 +37,7 @@ def get_exercise_type(et_id: int):
     return jsonify(et.to_dict())
 
 
-@exercise_types_bp.put("/<int:et_id>")
+@exercise_types_bp.patch("/<int:et_id>")
 @jwt_required()
 def update_exercise_type(et_id: int):
     data = request.get_json(silent=True) or {}

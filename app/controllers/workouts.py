@@ -41,7 +41,7 @@ def get_workout(workout_id: int):
     return jsonify(workout.to_dict())
 
 
-@workouts_bp.put("/<int:workout_id>")
+@workouts_bp.patch("/<int:workout_id>")
 @jwt_required()
 def update_workout(workout_id: int):
     data = request.get_json(silent=True) or {}

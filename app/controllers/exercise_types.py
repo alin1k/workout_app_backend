@@ -15,11 +15,20 @@ exercise_types_bp = Blueprint(
 def list_exercise_types():
     pagination = parse_pagination(request.args)
     items, total = exercise_type_service.list_exercise_types(
-        pagination.limit, pagination.offset
+        pagination.limit,
+        pagination.offset,
+        q=request.args.get("q"),
+        muscle_group=request.args.get("muscle_group"),
     )
     return jsonify(
         paginated_response([et.to_dict() for et in items], total, pagination)
     )
+
+
+@exercise_types_bp.get("/muscle-groups")
+@jwt_required()
+def list_muscle_groups():
+    return jsonify({"data": exercise_type_service.list_muscle_groups()})
 
 
 @exercise_types_bp.post("")

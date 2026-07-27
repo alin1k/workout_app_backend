@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 
 from app.api_version import API_PREFIX
+from app.controllers.guards import admin_required
 from app.pagination import paginated_response, parse_pagination
 from app.services import exercise_type_service
 
@@ -31,6 +32,9 @@ def list_muscle_groups():
     return jsonify({"data": exercise_type_service.list_muscle_groups()})
 
 
+# Deliberately NOT admin-gated: this powers the inline "add new movement"
+# flow in the exercise picker. Adding to the catalog is additive; editing
+# and deleting mutate what everyone else already logged, so those are.
 @exercise_types_bp.post("")
 @jwt_required()
 def create_exercise_type():
@@ -48,6 +52,7 @@ def get_exercise_type(et_id: int):
 
 @exercise_types_bp.patch("/<int:et_id>")
 @jwt_required()
+@admin_required
 def update_exercise_type(et_id: int):
     data = request.get_json(silent=True) or {}
     et = exercise_type_service.update_exercise_type(et_id, data)
@@ -56,6 +61,7 @@ def update_exercise_type(et_id: int):
 
 @exercise_types_bp.delete("/<int:et_id>")
 @jwt_required()
+@admin_required
 def delete_exercise_type(et_id: int):
     exercise_type_service.delete_exercise_type(et_id)
     return "", 204

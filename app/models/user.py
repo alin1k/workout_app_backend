@@ -13,6 +13,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
+    is_admin = db.Column(db.Boolean, nullable=False, default=False)
     created_at = db.Column(
         db.DateTime(timezone=True),
         nullable=False,
@@ -51,8 +52,12 @@ class User(db.Model):
 
     def to_dict(self) -> dict:
         # password_hash is intentionally never serialized.
+        # Scalar columns only — admin_service calls this once per row of a
+        # LEFT JOIN'd listing, so touching `self.workouts` here would turn
+        # that single query into an N+1.
         return {
             "id": self.id,
             "username": self.username,
+            "is_admin": self.is_admin,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

@@ -37,3 +37,9 @@ class AuthenticationError(ServiceError):
     """Bad credentials, missing/expired token, or rejected registration key."""
 
     status_code = 401
+
+
+class ForbiddenError(ServiceError):
+    """Authenticated, but not permitted to perform this action."""
+
+    status_code = 403

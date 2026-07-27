@@ -101,6 +101,7 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     from app.controllers.exercises import exercises_bp
     from app.controllers.sets import sets_bp
     from app.controllers.dashboard import dashboard_bp
+    from app.controllers.admin import admin_bp
     from app.controllers.errors import register_error_handlers
 
     app.register_blueprint(auth_bp)
@@ -109,6 +110,7 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     app.register_blueprint(exercises_bp)
     app.register_blueprint(sets_bp)
     app.register_blueprint(dashboard_bp)
+    app.register_blueprint(admin_bp)
 
     register_error_handlers(app)
 

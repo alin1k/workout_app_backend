@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
 from app.models.user import User
-from app.services.errors import AuthenticationError, ValidationError
+from app.services.errors import AuthenticationError, ForbiddenError, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -104,3 +104,19 @@ def get_user_by_id(user_id) -> User | None:
     except (TypeError, ValueError):
         return None
     return db.session.get(User, uid)
+
+
+def require_admin(user_id) -> User:
+    """Resolve a JWT identity to a User and assert the admin flag.
+
+    Raises AuthenticationError (401) when the token points at a deleted
+    account — same treatment as /auth/me — and ForbiddenError (403) when the
+    account exists but isn't an admin.
+    """
+    user = get_user_by_id(user_id)
+    if user is None:
+        raise AuthenticationError("user no longer exists")
+    if not user.is_admin:
+        logger.warning("Admin-only endpoint refused for user id=%s", user.id)
+        raise ForbiddenError("administrator access required")
+    return user

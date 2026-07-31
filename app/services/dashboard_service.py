@@ -85,11 +85,19 @@ def get_summary(user_id: int) -> dict:
     }
 
 
-def get_progress(exercise_type_id: int, user_id: int) -> dict:
-    """Per-workout 'heaviest set' series + PR for one exercise type."""
+def get_progress(
+    exercise_type_id: int, user_id: int, exclude_workout_id: int | None = None
+) -> dict:
+    """Per-workout 'heaviest set' series + PR for one exercise type.
+
+    `exclude_workout_id` only skips that workout when picking `last_session`:
+    opened from a workout you are logging right now, "last session" should mean
+    the previous time you trained this exercise, not the sets just entered. The
+    chart still covers the full history.
+    """
     logger.info(
-        "Building progress for exercise_type_id=%s user_id=%s",
-        exercise_type_id, user_id,
+        "Building progress for exercise_type_id=%s user_id=%s exclude_workout_id=%s",
+        exercise_type_id, user_id, exclude_workout_id,
     )
     # ExerciseType is global — no user filter (same as workout_service.add_exercise).
     exercise_type = db.session.get(ExerciseType, exercise_type_id)
@@ -122,6 +130,8 @@ def get_progress(exercise_type_id: int, user_id: int) -> dict:
         if sets:
             workout_sets.append((workout, sets))
 
+    workout_sets.sort(key=lambda ws: (_effective_date(ws[0]), ws[0].id))
+
     # unit: "kg" if any set of this type across the whole history has a weight.
     unit = "kg" if any(
         s.weight is not None for _, sets in workout_sets for s in sets
@@ -147,10 +157,27 @@ def get_progress(exercise_type_id: int, user_id: int) -> dict:
             "value": value,
             "sets": len(sets),
             "volume_kg": volume,
-            "_sort": (_effective_date(workout), workout.id),
         })
 
-    series.sort(key=lambda p: p.pop("_sort"))
+    # Every set of this type from the most recent workout it appears in, so the
+    # info sheet can replay the session set by set. Built from workout_sets (not
+    # series) so a bodyweight-only session of a weighted type still shows up.
+    last_session = None
+    previous = next(
+        (ws for ws in reversed(workout_sets) if ws[0].id != exclude_workout_id),
+        None,
+    )
+    if previous is not None:
+        workout, sets = previous
+        last_session = {
+            "workout_id": workout.id,
+            "workout_name": workout.name,
+            "date": _effective_date(workout).isoformat(),
+            "sets": [
+                {"reps": s.reps, "weight": s.weight}
+                for s in sorted(sets, key=lambda s: (s.set_number, s.id))
+            ],
+        }
 
     pr = None
     if series:
@@ -168,4 +195,5 @@ def get_progress(exercise_type_id: int, user_id: int) -> dict:
         "unit": unit,
         "series": series,
         "pr": pr,
+        "last_session": last_session,
     }

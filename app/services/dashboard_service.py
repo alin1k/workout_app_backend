@@ -1,10 +1,12 @@
 import logging
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from app.extensions import db
 from app.models.exercise import Exercise
+from app.models.exercise_set import ExerciseSet
 from app.models.exercise_type import ExerciseType
 from app.models.workout import Workout
 from app.services.errors import NotFoundError
@@ -85,25 +87,22 @@ def get_summary(user_id: int) -> dict:
     }
 
 
-def get_progress(
-    exercise_type_id: int, user_id: int, exclude_workout_id: int | None = None
-) -> dict:
-    """Per-workout 'heaviest set' series + PR for one exercise type.
-
-    `exclude_workout_id` only skips that workout when picking `last_session`:
-    opened from a workout you are logging right now, "last session" should mean
-    the previous time you trained this exercise, not the sets just entered. The
-    chart still covers the full history.
-    """
-    logger.info(
-        "Building progress for exercise_type_id=%s user_id=%s exclude_workout_id=%s",
-        exercise_type_id, user_id, exclude_workout_id,
-    )
+def _get_exercise_type(exercise_type_id: int) -> ExerciseType:
     # ExerciseType is global — no user filter (same as workout_service.add_exercise).
     exercise_type = db.session.get(ExerciseType, exercise_type_id)
     if exercise_type is None:
         logger.warning("ExerciseType id=%s not found", exercise_type_id)
         raise NotFoundError("exercise type not found")
+    return exercise_type
+
+
+def get_progress(exercise_type_id: int, user_id: int) -> dict:
+    """Per-workout 'heaviest set' series + PR for one exercise type."""
+    logger.info(
+        "Building progress for exercise_type_id=%s user_id=%s",
+        exercise_type_id, user_id,
+    )
+    exercise_type = _get_exercise_type(exercise_type_id)
 
     # Only this user's workouts that contain an exercise of this type, sets eager-loaded.
     workouts = (
@@ -159,26 +158,6 @@ def get_progress(
             "volume_kg": volume,
         })
 
-    # Every set of this type from the most recent workout it appears in, so the
-    # info sheet can replay the session set by set. Built from workout_sets (not
-    # series) so a bodyweight-only session of a weighted type still shows up.
-    last_session = None
-    previous = next(
-        (ws for ws in reversed(workout_sets) if ws[0].id != exclude_workout_id),
-        None,
-    )
-    if previous is not None:
-        workout, sets = previous
-        last_session = {
-            "workout_id": workout.id,
-            "workout_name": workout.name,
-            "date": _effective_date(workout).isoformat(),
-            "sets": [
-                {"reps": s.reps, "weight": s.weight}
-                for s in sorted(sets, key=lambda s: (s.set_number, s.id))
-            ],
-        }
-
     pr = None
     if series:
         # First workout (in chart order) that achieves the max value.
@@ -195,5 +174,73 @@ def get_progress(
         "unit": unit,
         "series": series,
         "pr": pr,
-        "last_session": last_session,
     }
+
+
+def list_sessions(
+    exercise_type_id: int,
+    user_id: int,
+    limit: int,
+    offset: int,
+    exclude_workout_id: int | None = None,
+) -> tuple[list[dict], int]:
+    """Past sessions of one exercise type, newest first, with every set logged.
+
+    A session is one workout that has at least one set of this type (a type
+    appearing as two entries in one workout → sets merged into one session, same
+    as the chart). `exclude_workout_id` leaves out the workout being logged right
+    now: its sets are already on screen, so history starts at the one before.
+    """
+    logger.info(
+        "Listing sessions for exercise_type_id=%s user_id=%s limit=%s offset=%s "
+        "exclude_workout_id=%s",
+        exercise_type_id, user_id, limit, offset, exclude_workout_id,
+    )
+    _get_exercise_type(exercise_type_id)
+
+    # Filter on sets (not just exercises) so a workout where the exercise was
+    # added but nothing logged doesn't show up as an empty page entry.
+    has_sets = (
+        select(ExerciseSet.id)
+        .join(Exercise, Exercise.id == ExerciseSet.exercise_id)
+        .where(
+            Exercise.workout_id == Workout.id,
+            Exercise.exercise_type_id == exercise_type_id,
+        )
+        .exists()
+    )
+    query = Workout.query.filter(Workout.user_id == user_id, has_sets)
+    if exclude_workout_id is not None:
+        query = query.filter(Workout.id != exclude_workout_id)
+
+    total = query.count()
+    # Same ordering as _effective_date, done in SQL so limit/offset page correctly.
+    workouts = (
+        query.order_by(
+            func.coalesce(Workout.performed_at, Workout.created_at).desc(),
+            Workout.id.desc(),
+        )
+        .options(selectinload(Workout.exercises).selectinload(Exercise.sets))
+        .limit(limit)
+        .offset(offset)
+        .all()
+    )
+
+    sessions = []
+    for workout in workouts:
+        sets = [
+            s
+            for exercise in workout.exercises
+            if exercise.exercise_type_id == exercise_type_id
+            for s in exercise.sets
+        ]
+        sessions.append({
+            "workout_id": workout.id,
+            "workout_name": workout.name,
+            "date": _effective_date(workout).isoformat(),
+            "sets": [
+                {"reps": s.reps, "weight": s.weight}
+                for s in sorted(sets, key=lambda s: (s.set_number, s.id))
+            ],
+        })
+    return sessions, total

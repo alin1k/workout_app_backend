@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from app.api_version import API_PREFIX
+from app.pagination import paginated_response, parse_pagination
 from app.services import dashboard_service
 from app.services.errors import ValidationError
 
@@ -21,15 +22,25 @@ def summary():
 @dashboard_bp.get("/progress/<int:exercise_type_id>")
 @jwt_required()
 def progress(exercise_type_id: int):
-    return jsonify(
-        dashboard_service.get_progress(
-            exercise_type_id, _user_id(), _exclude_workout_id()
-        )
+    return jsonify(dashboard_service.get_progress(exercise_type_id, _user_id()))
+
+
+@dashboard_bp.get("/progress/<int:exercise_type_id>/sessions")
+@jwt_required()
+def sessions(exercise_type_id: int):
+    pagination = parse_pagination(request.args)
+    items, total = dashboard_service.list_sessions(
+        exercise_type_id,
+        _user_id(),
+        pagination.limit,
+        pagination.offset,
+        _exclude_workout_id(),
     )
+    return jsonify(paginated_response(items, total, pagination))
 
 
 def _exclude_workout_id() -> int | None:
-    """Workout to leave out of `last_session` (the one being logged right now)."""
+    """Workout to leave out of the session history (the one being logged right now)."""
     raw = request.args.get("exclude_workout_id")
     if raw is None or raw == "":
         return None

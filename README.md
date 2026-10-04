@@ -51,6 +51,16 @@ docker exec workout_app_web python -m scripts.seed_dev --reset   # wipe the seed
 
 This never runs in production: only `docker-compose.override.yml` calls it, `scripts/` is excluded from the image by `.dockerignore`, and the script exits unless `FLASK_ENV=development`.
 
+## Accounts
+
+There is no self-registration. An administrator creates accounts from the app (**Account → Admin → Users → New account**), which calls `POST /api/v1/admin/users`. Accounts created this way are always normal users; the new user can change the password they were given from **Account → Reset password**.
+
+The first administrator has to come from somewhere else. In dev the seed script above provides `admin`. Anywhere else — a fresh production database, or whenever you need another admin — use the CLI, which prompts for the password:
+
+```bash
+docker compose exec web flask --app app create-admin <username>
+```
+
 ## Compose file layout
 
 - `docker-compose.yml` — base definition shared by every environment.

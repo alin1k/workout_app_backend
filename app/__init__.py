@@ -72,11 +72,11 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     _configure_logging(app)
 
     # CORS — open in dev, restrict in prod via CORS_ORIGINS.
-    # Explicit allow_headers ensures Authorization (JWT) and X-Registration-Key
-    # both pass through the preflight.
+    # Explicit allow_headers ensures Authorization (JWT) passes through the
+    # preflight.
     origins_raw = os.environ.get("CORS_ORIGINS", "*").strip()
     cors_kwargs = {
-        "allow_headers": ["Content-Type", "Authorization", "X-Registration-Key"],
+        "allow_headers": ["Content-Type", "Authorization"],
     }
     if origins_raw == "*":
         CORS(app, **cors_kwargs)
@@ -113,6 +113,10 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     app.register_blueprint(admin_bp)
 
     register_error_handlers(app)
+
+    from app.cli import register_cli
+
+    register_cli(app)
 
     @app.get("/api/health")
     def health():

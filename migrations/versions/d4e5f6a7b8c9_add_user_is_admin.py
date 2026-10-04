@@ -14,10 +14,9 @@ made outside SQLAlchemy (psql, fixtures) also default to false.
 
 CAVEAT: if `users` is EMPTY when this runs — e.g. straight after a
 `docker compose down -v` — the UPDATE matches nothing and nobody ends up
-an admin. Register the first account, then promote it by hand:
+an admin. Create one with the CLI instead:
 
-    docker compose exec db psql -U postgres -d workout_app \\
-      -c "UPDATE users SET is_admin = true WHERE id = (SELECT MIN(id) FROM users);"
+    docker compose exec web flask --app app create-admin <username>
 """
 
 import sqlalchemy as sa

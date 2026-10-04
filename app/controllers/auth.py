@@ -8,14 +8,6 @@ from app.services.errors import AuthenticationError
 auth_bp = Blueprint("auth", __name__, url_prefix=f"{API_PREFIX}/auth")
 
 
-@auth_bp.post("/register")
-def register():
-    key = request.headers.get("X-Registration-Key", "")
-    data = request.get_json(silent=True) or {}
-    user, token = auth_service.register(data, key)
-    return jsonify({"user": user.to_dict(), "access_token": token}), 201
-
-
 @auth_bp.post("/login")
 def login():
     data = request.get_json(silent=True) or {}

@@ -34,7 +34,7 @@ class ConflictError(ServiceError):
 
 
 class AuthenticationError(ServiceError):
-    """Bad credentials, missing/expired token, or rejected registration key."""
+    """Bad credentials or a missing/expired token."""
 
     status_code = 401
 

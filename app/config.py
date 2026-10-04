@@ -17,6 +17,3 @@ class Config:
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(
         seconds=int(os.environ.get("JWT_ACCESS_TOKEN_EXPIRES_SECONDS"))
     )
-
-    # Closed-registration secret. Empty/unset means registration is locked.
-    REGISTRATION_KEY = os.environ.get("REGISTRATION_KEY", "")

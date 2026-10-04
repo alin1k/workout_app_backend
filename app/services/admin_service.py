@@ -1,4 +1,4 @@
-"""Admin-only queries.
+"""Admin-only queries and account creation.
 
 Unlike the other services this one returns plain dicts rather than model
 instances: a row here is a projection (a User plus two aggregates), not a
@@ -9,11 +9,12 @@ tuple shape upward.
 import logging
 
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
 from app.models.user import User
 from app.models.workout import Workout
-from app.services.errors import NotFoundError
+from app.services.errors import ConflictError, NotFoundError, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -88,3 +89,41 @@ def get_user(user_id: int) -> dict:
         logger.warning("Admin lookup: user id=%s not found", user_id)
         raise NotFoundError(f"User {user_id} not found")
     return _serialize(*row)
+
+
+def create_user(data: dict, *, is_admin: bool = False, created_by=None) -> dict:
+    """Create an account on someone's behalf.
+
+    This is the only way accounts come into existence — there is no
+    self-registration. `is_admin` is a keyword the caller sets, never a
+    payload field: the HTTP endpoint leaves it False so the app can only
+    mint normal users, and the `create-admin` CLI command passes True.
+    """
+    username = data.get("username")
+    password = data.get("password")
+
+    if not isinstance(password, str) or password == "":
+        raise ValidationError("password is required", field="password")
+
+    # Model-level validation (username length, password min length) raises
+    # ValidationError.
+    user = User(username=username, is_admin=is_admin)
+    user.set_password(password)
+
+    db.session.add(user)
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        logger.warning("Account creation rejected: username=%r already taken", username)
+        # Unlike login, the caller is a trusted admin — say what went wrong.
+        raise ConflictError("username is already taken")
+
+    logger.info(
+        "Created user id=%s username=%r is_admin=%s created_by=%s",
+        user.id,
+        user.username,
+        user.is_admin,
+        created_by,
+    )
+    return _serialize(user, 0, None)

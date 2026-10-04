@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from app.api_version import API_PREFIX
 from app.controllers.guards import admin_required
@@ -9,8 +9,9 @@ from app.services import admin_service
 admin_bp = Blueprint("admin", __name__, url_prefix=f"{API_PREFIX}/admin")
 
 
-# Read-only by design. There is no PATCH/DELETE on users, which structurally
-# rules out an admin demoting or deleting themselves into a locked-out state.
+# List, read and create only. There is no PATCH/DELETE on users, which
+# structurally rules out an admin demoting or deleting themselves into a
+# locked-out state.
 @admin_bp.get("/users")
 @jwt_required()
 @admin_required
@@ -29,3 +30,15 @@ def list_users():
 @admin_required
 def get_user(user_id: int):
     return jsonify(admin_service.get_user(user_id))
+
+
+# The only way to create an account. Always a normal user: `is_admin` in the
+# body is ignored, and no token is issued — the admin stays signed in as
+# themselves and hands the credentials over out of band.
+@admin_bp.post("/users")
+@jwt_required()
+@admin_required
+def create_user():
+    data = request.get_json(silent=True) or {}
+    user = admin_service.create_user(data, created_by=get_jwt_identity())
+    return jsonify(user), 201

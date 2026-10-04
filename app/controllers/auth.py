@@ -33,6 +33,16 @@ def me():
     return jsonify(user.to_dict())
 
 
+@auth_bp.patch("/me")
+@jwt_required()
+def update_me():
+    user = auth_service.get_user_by_id(get_jwt_identity())
+    if user is None:
+        raise AuthenticationError("user no longer exists")
+    data = request.get_json(silent=True) or {}
+    return jsonify(auth_service.update_profile(user, data).to_dict())
+
+
 @auth_bp.post("/reset-password")
 @jwt_required()
 def reset_password():

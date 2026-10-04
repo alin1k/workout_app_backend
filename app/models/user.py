@@ -7,6 +7,14 @@ from app.extensions import db
 from app.services.errors import ValidationError
 
 
+AVATAR_CODE_MAX = 64
+
+
+def _default_avatar_code(context):
+    # A new account's picture is seeded from its (already normalised) username.
+    return context.get_current_parameters()["username"]
+
+
 class User(db.Model):
     __tablename__ = "users"
 
@@ -14,6 +22,11 @@ class User(db.Model):
     username = db.Column(db.String(64), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
+    # Seed for the generated profile picture — the client renders the avatar
+    # from this string, so no image is ever stored.
+    avatar_code = db.Column(
+        db.String(AVATAR_CODE_MAX), nullable=False, default=_default_avatar_code
+    )
     created_at = db.Column(
         db.DateTime(timezone=True),
         nullable=False,
@@ -35,6 +48,21 @@ class User(db.Model):
             raise ValidationError("username must be at least 3 characters", field=key)
         if len(v) > 64:
             raise ValidationError("username must be at most 64 characters", field=key)
+        return v
+
+    @validates("avatar_code")
+    def _validate_avatar_code(self, key, value):
+        if value is None:
+            raise ValidationError("avatar_code is required", field=key)
+        if not isinstance(value, str):
+            raise ValidationError("avatar_code must be a string", field=key)
+        v = value.strip()
+        if not v:
+            raise ValidationError("avatar_code is required", field=key)
+        if len(v) > AVATAR_CODE_MAX:
+            raise ValidationError(
+                f"avatar_code must be at most {AVATAR_CODE_MAX} characters", field=key
+            )
         return v
 
     def set_password(self, plain: str) -> None:
@@ -59,5 +87,6 @@ class User(db.Model):
             "id": self.id,
             "username": self.username,
             "is_admin": self.is_admin,
+            "avatar_code": self.avatar_code,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

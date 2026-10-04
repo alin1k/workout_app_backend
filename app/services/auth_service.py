@@ -11,6 +11,8 @@ from app.services.errors import AuthenticationError, ForbiddenError, ValidationE
 
 logger = logging.getLogger(__name__)
 
+_MUTABLE_PROFILE_FIELDS = ("avatar_code",)
+
 
 def _issue_token(user: User) -> str:
     # JWT identity must be a string in flask-jwt-extended 4.x.
@@ -96,6 +98,20 @@ def reset_password(user: User, data: dict) -> None:
     user.set_password(new_password)
     db.session.commit()
     logger.info("Password updated for user id=%s", user.id)
+
+
+def update_profile(user: User, data: dict) -> User:
+    provided = [f for f in _MUTABLE_PROFILE_FIELDS if f in data]
+    if not provided:
+        raise ValidationError("no fields to update")
+
+    # Model-level validation (non-empty, max length) raises ValidationError.
+    if "avatar_code" in data:
+        user.avatar_code = data["avatar_code"]
+
+    db.session.commit()
+    logger.info("Profile updated for user id=%s fields=%s", user.id, provided)
+    return user
 
 
 def get_user_by_id(user_id) -> User | None:

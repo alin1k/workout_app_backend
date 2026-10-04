@@ -8,3 +8,5 @@ __pycache__/
 .DS_Store
 .env
 *.egg-info/
+# Dev-only seed scripts — bind-mounted by docker-compose.override.yml.
+scripts/

@@ -9,6 +9,11 @@ services:
     volumes:
       - ./app:/app/app
       - ./migrations:/app/migrations
+      # Dev seed script. Not in the image (see .dockerignore) and never
+      # mounted by docker-compose.prod.yml.
+      - ./scripts:/app/scripts
+    # A failing seed is reported but doesn't keep the dev server from starting.
     command: >
       sh -c "flask --app app db upgrade &&
+             (python -m scripts.seed_dev || echo 'seed_dev FAILED - starting the server anyway') &&
              flask --app app run --host=0.0.0.0 --port=5000 --debug"

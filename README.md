@@ -33,6 +33,24 @@ What happens on `up`:
 
 Source code is bind-mounted (`./app`, `./migrations`) so edits trigger an immediate Flask reload — no rebuild needed.
 
+## Dev seed data
+
+On a dev `docker compose up`, `scripts/seed_dev.py` runs right after the migrations and makes sure the database has something to look at:
+
+| Login | Password | Role |
+|---|---|---|
+| `admin` | `admin` | admin |
+| `demo` | `demo` | normal user |
+
+It also creates a small movement catalogue and a few weeks of workouts for each user. It is idempotent: users and movements are created only if missing, and workouts are added only to a seed user who has none, so your own data survives restarts. The two passwords and admin flags are put back to the values above on every start.
+
+```bash
+docker exec workout_app_web python -m scripts.seed_dev           # run it by hand
+docker exec workout_app_web python -m scripts.seed_dev --reset   # wipe the seed users' workouts and re-create them
+```
+
+This never runs in production: only `docker-compose.override.yml` calls it, `scripts/` is excluded from the image by `.dockerignore`, and the script exits unless `FLASK_ENV=development`.
+
 ## Compose file layout
 
 - `docker-compose.yml` — base definition shared by every environment.

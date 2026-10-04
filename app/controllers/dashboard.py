@@ -19,6 +19,12 @@ def summary():
     return jsonify(dashboard_service.get_summary(_user_id()))
 
 
+@dashboard_bp.get("/activity")
+@jwt_required()
+def activity():
+    return jsonify(dashboard_service.get_activity(_user_id(), _activity_days()))
+
+
 @dashboard_bp.get("/progress/<int:exercise_type_id>")
 @jwt_required()
 def progress(exercise_type_id: int):
@@ -50,3 +56,21 @@ def _exclude_workout_id() -> int | None:
         raise ValidationError(
             "exclude_workout_id must be an integer", field="exclude_workout_id"
         ) from exc
+
+
+def _activity_days() -> int:
+    """How far back the activity feed reaches. Defaults to a 53-week grid plus
+    a day of slack for the client's timezone."""
+    raw = request.args.get("days")
+    if raw is None or raw == "":
+        return dashboard_service.ACTIVITY_DEFAULT_DAYS
+    try:
+        days = int(raw)
+    except (ValueError, TypeError) as exc:
+        raise ValidationError("days must be an integer", field="days") from exc
+    if not 1 <= days <= dashboard_service.ACTIVITY_MAX_DAYS:
+        raise ValidationError(
+            f"days must be between 1 and {dashboard_service.ACTIVITY_MAX_DAYS}",
+            field="days",
+        )
+    return days

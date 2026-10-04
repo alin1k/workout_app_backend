@@ -13,6 +13,9 @@ from app.services.errors import NotFoundError
 
 logger = logging.getLogger(__name__)
 
+ACTIVITY_DEFAULT_DAYS = 53 * 7 + 1
+ACTIVITY_MAX_DAYS = 2 * 366
+
 
 def _effective_date(workout: Workout) -> datetime:
     """A workout's effective date: performed_at, falling back to created_at.
@@ -174,6 +177,40 @@ def get_progress(exercise_type_id: int, user_id: int) -> dict:
         "unit": unit,
         "series": series,
         "pr": pr,
+    }
+
+
+def get_activity(user_id: int, days: int) -> dict:
+    """One entry per workout in the last `days` days, oldest first, with its
+    set count — the raw material for the activity grid.
+
+    Deliberately not bucketed per day: which calendar day a workout falls on
+    depends on the viewer's timezone, so the client does the grouping.
+    """
+    logger.info("Building activity feed for user_id=%s days=%s", user_id, days)
+
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    effective = func.coalesce(Workout.performed_at, Workout.created_at)
+    rows = (
+        db.session.query(Workout, func.count(ExerciseSet.id))
+        .outerjoin(Exercise, Exercise.workout_id == Workout.id)
+        .outerjoin(ExerciseSet, ExerciseSet.exercise_id == Exercise.id)
+        .filter(Workout.user_id == user_id, effective >= since)
+        .group_by(Workout.id)
+        .order_by(effective, Workout.id)
+        .all()
+    )
+
+    return {
+        "days": days,
+        "sessions": [
+            {
+                "workout_id": workout.id,
+                "date": _effective_date(workout).isoformat(),
+                "sets": set_count,
+            }
+            for workout, set_count in rows
+        ],
     }
 
 
